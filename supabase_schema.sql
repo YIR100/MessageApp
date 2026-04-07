@@ -62,15 +62,28 @@ create table public.conversation_members (
 );
 alter table public.conversation_members enable row level security;
 
+-- Helper to avoid infinite recursion in conversation_members RLS.
+-- (Policies on conversation_members cannot safely subquery conversation_members.)
+create or replace function public.is_conversation_member(cid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.conversation_members cm
+    where cm.conversation_id = cid
+      and cm.user_id = auth.uid()
+  );
+$$;
+
 create policy "Members can view membership"
   on public.conversation_members for select
   using (
     user_id = auth.uid() or
-    exists (
-      select 1 from public.conversation_members cm
-      where cm.conversation_id = conversation_members.conversation_id
-        and cm.user_id = auth.uid()
-    )
+    public.is_conversation_member(conversation_id)
   );
 
 create policy "Conversation creator can add members"
