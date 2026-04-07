@@ -67,7 +67,7 @@ export default function NewConversationPage() {
 
         const myIds = (myConvs ?? []).map((r: any) => r.conversation_id);
         if (myIds.length) {
-          const { data: shared } = await supabase
+          const { data: shared } = await sb
             .from('conversation_members')
             .select('conversation_id, conversations(*)')
             .eq('user_id', otherId)

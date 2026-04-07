@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -10,7 +12,32 @@ if (!url || !anonKey) {
   );
 }
 
-export const supabase = url && anonKey ? createClient(url, anonKey) : null;
+const capacitorStorage = {
+  async getItem(key: string) {
+    const { value } = await Preferences.get({ key });
+    return value ?? null;
+  },
+  async setItem(key: string, value: string) {
+    await Preferences.set({ key, value });
+  },
+  async removeItem(key: string) {
+    await Preferences.remove({ key });
+  },
+};
+
+export const supabase =
+  url && anonKey
+    ? createClient(url, anonKey, {
+        auth: {
+          // On native (Capacitor), localStorage can be flaky depending on WebView settings.
+          // Preferences gives us reliable persistence so requests include the JWT (auth.uid() works).
+          storage: Capacitor.isNativePlatform() ? (capacitorStorage as any) : undefined,
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: !Capacitor.isNativePlatform(),
+        },
+      })
+    : null;
 
 export function requireSupabase() {
   if (!supabase) {
