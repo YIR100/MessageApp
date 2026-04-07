@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MessageApp</string>
+    <string name="title_activity_main">MessageApp</string>
+    <string name="package_name">com.indra.messageapp</string>
+    <string name="custom_url_scheme">com.indra.messageapp</string>
+</resources>
