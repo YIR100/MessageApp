@@ -1,33 +1,55 @@
-import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 
-const SUPABASE_URL =
-  process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://YOUR_PROJECT_ID.supabase.co';
-const SUPABASE_ANON_KEY =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'YOUR_ANON_KEY';
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-if (SUPABASE_URL.includes('YOUR_PROJECT_ID') || SUPABASE_ANON_KEY === 'YOUR_ANON_KEY') {
+if (!url || !anonKey) {
+  // eslint-disable-next-line no-console
   console.warn(
-    'Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+    'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in web/.env'
   );
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
+const capacitorStorage = {
+  async getItem(key: string) {
+    const { value } = await Preferences.get({ key });
+    return value ?? null;
   },
-});
+  async setItem(key: string, value: string) {
+    await Preferences.set({ key, value });
+  },
+  async removeItem(key: string) {
+    await Preferences.remove({ key });
+  },
+};
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+export const supabase =
+  url && anonKey
+    ? createClient(url, anonKey, {
+        auth: {
+          // On native (Capacitor), localStorage can be flaky depending on WebView settings.
+          // Preferences gives us reliable persistence so requests include the JWT (auth.uid() works).
+          storage: Capacitor.isNativePlatform() ? (capacitorStorage as any) : undefined,
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: !Capacitor.isNativePlatform(),
+        },
+      })
+    : null;
+
+export function requireSupabase() {
+  if (!supabase) {
+    throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in web/.env');
+  }
+  return supabase;
+}
 
 export type Profile = {
   id: string;
   username: string;
-  avatar_url?: string;
+  avatar_url?: string | null;
   created_at: string;
 };
 
@@ -36,12 +58,11 @@ export type Conversation = {
   name: string | null;
   is_group: boolean;
   created_at: string;
-  // Joined fields
+  created_by?: string;
+  members?: Profile[];
+  other_user?: Profile;
   last_message?: string;
   last_message_at?: string;
-  other_user?: Profile; // for 1:1
-  members?: Profile[];  // for group
-  unread_count?: number;
 };
 
 export type Message = {
@@ -50,5 +71,10 @@ export type Message = {
   sender_id: string;
   content: string;
   created_at: string;
+  media_url?: string;
+  updated_at?: string;
+  is_deleted?: boolean;
   sender?: Profile;
+  message_reads?: { user_id: string; read_at: string }[];
 };
+

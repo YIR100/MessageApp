@@ -1,101 +1,118 @@
-# MessageApp
+# MessageApp Web + Capacitor
 
-A cross-platform messaging app built with React Native (Expo) + Supabase.
-Supports 1:1 and group chats, real-time messaging, and typing indicators.
-Runs on iOS, Android, and Web from one codebase.
+This folder is a rewrite of the app as a **web client** (Vite + React) that can run:
 
----
+- **On the web** (browser)
+- **On phones** via **Capacitor** (Android/iOS WebView wrapper)
 
-## Setup Guide
+## Configure Supabase
 
-### 1. Create a Supabase project
-
-1. Go to [supabase.com](https://supabase.com) and create a free account
-2. Create a new project (remember the password)
-3. Once ready, go to **Settings → API** and copy:
-   - **Project URL** → looks like `https://xxxx.supabase.co`
-   - **anon public key** → long JWT string
-
-### 2. Set up the database
-
-1. In your Supabase dashboard, click **SQL Editor → New query**
-2. Paste the entire contents of `supabase_schema.sql`
-3. Click **Run** — this creates all tables, policies, and triggers
-
-### 3. Configure the app
-
-Open `src/lib/supabase.ts` and replace:
-
-```ts
-const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
-```
-
-with your actual values from step 1.
-
-### 4. Install dependencies & run
+Create `web/.env` based on `web/.env.example`:
 
 ```bash
+VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
+```
+
+## Run in browser
+
+```bash
+cd web
 npm install
-npx expo start
+npm run dev
 ```
 
-Then:
-- Press `i` for iOS simulator
-- Press `a` for Android emulator
-- Press `w` for Web browser
-- Scan the QR code with **Expo Go** app to test on a real phone
+## Run on Android / iOS (Capacitor)
 
-### 5. Share remotely
+First build + sync the web assets into the native projects:
 
-To share with others over the internet:
 ```bash
-npx expo start --tunnel
-```
-This gives a public URL others can open in Expo Go without being on your network.
-
----
-
-## Project Structure
-
-```
-MessageApp/
-├── App.tsx                          # Root entry point
-├── app.json                         # Expo config
-├── supabase_schema.sql              # Database setup (run once in Supabase)
-├── src/
-│   ├── lib/
-│   │   ├── supabase.ts              # Supabase client + types
-│   │   └── theme.ts                 # Design tokens (colors, fonts, spacing)
-│   ├── hooks/
-│   │   └── useAuth.tsx              # Auth context + session management
-│   ├── navigation/
-│   │   └── index.tsx                # Stack + Tab navigation
-│   └── screens/
-│       ├── AuthScreen.tsx           # Login / Register
-│       ├── ConversationsScreen.tsx  # Conversation list
-│       ├── ChatScreen.tsx           # Chat view with real-time messages
-│       ├── NewConversationScreen.tsx# Start 1:1 or group chat
-│       └── ProfileScreen.tsx        # Profile + sign out
+cd web
+npm run cap:sync
 ```
 
----
+Then open the native IDE project:
 
-## Features
+```bash
+cd web
+npm run android
+npm run ios
+```
 
-- ✅ Email/password authentication
-- ✅ 1:1 and group chats
-- ✅ Real-time messages (Supabase Realtime)
-- ✅ Typing indicators (broadcast)
-- ✅ User search
-- ✅ Profile management
-- ✅ Works on iOS, Android, and Web
+Notes:
+- Android requires Android Studio installed.
+- iOS requires Xcode on macOS.
 
-## Extending the App
+# React + TypeScript + Vite
 
-Some ideas for next steps:
-- **Push notifications** — use Expo Notifications + Supabase Edge Functions
-- **Image messages** — use Supabase Storage for file uploads
-- **Read receipts** — add a `read_at` column to messages
-- **Message reactions** — add a `reactions` table
-- **Delete/edit messages** — add update/delete policies in Supabase
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```

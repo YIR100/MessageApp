@@ -95,7 +95,7 @@ create policy "Conversation creator can add members"
 create table public.messages (
   id              uuid primary key default gen_random_uuid(),
   conversation_id uuid references public.conversations(id) on delete cascade,
-  sender_id       uuid references auth.users(id),
+  sender_id       uuid references public.profiles(id),
   content         text not null,
   created_at      timestamptz default now()
 );
@@ -130,9 +130,67 @@ alter publication supabase_realtime add table public.conversations;
 create policy "Members can view their conversations"
   on public.conversations for select
   using (
+    created_by = auth.uid() OR
     exists (
       select 1 from public.conversation_members
       where conversation_id = conversations.id
         and user_id = auth.uid()
     )
   );
+-- ============================================================
+-- ADDITIONS FOR MEDIA, READ RECEIPTS, EDIT/DELETE
+-- ============================================================
+
+-- 1. Add support for Media Attachments, Editing, and Deleting Messages
+ALTER TABLE public.messages
+ADD COLUMN media_url text,
+ADD COLUMN updated_at timestamptz,
+ADD COLUMN is_deleted boolean DEFAULT false;
+
+-- 2. Create the attachments storage bucket
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('attachments', 'attachments', true);
+
+-- 3. Storage Policies for the attachments bucket
+CREATE POLICY "Authenticated users can upload attachments"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'attachments' AND 
+  auth.uid() = owner
+);
+
+CREATE POLICY "Anyone can view attachments"
+ON storage.objects FOR SELECT TO public
+USING (bucket_id = 'attachments');
+
+CREATE POLICY "Users can delete their own attachments"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+  bucket_id = 'attachments' AND 
+  auth.uid() = owner
+);
+
+-- 4. Create Read Receipts table
+CREATE TABLE public.message_reads (
+  message_id uuid REFERENCES public.messages(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  read_at timestamptz DEFAULT now(),
+  PRIMARY KEY (message_id, user_id)
+);
+ALTER TABLE public.message_reads ENABLE ROW LEVEL SECURITY;
+
+-- 5. Read Receipts Policies
+CREATE POLICY "Users can insert their own read receipts"
+ON public.message_reads FOR INSERT TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view read receipts for their conversations"
+ON public.message_reads FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.messages m
+    JOIN public.conversation_members cm ON m.conversation_id = cm.conversation_id
+    WHERE m.id = message_reads.message_id
+      AND cm.user_id = auth.uid()
+  )
+);
