@@ -5,6 +5,6 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   // Capacitor loads the built files from the local filesystem.
   // Using relative asset paths prevents blank screens on device.
-  base: './',
+  // base: './', // Removed to fix Vercel SPA routing
   plugins: [react()],
 })
