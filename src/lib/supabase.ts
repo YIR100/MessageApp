@@ -6,7 +6,6 @@ const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 if (!url || !anonKey) {
-  // eslint-disable-next-line no-console
   console.warn(
     'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in web/.env'
   );
@@ -74,6 +73,7 @@ export type Message = {
   media_url?: string;
   updated_at?: string;
   is_deleted?: boolean;
+  reply_to_id?: string | null;
   sender?: Profile;
   message_reads?: { user_id: string; read_at: string }[];
 };

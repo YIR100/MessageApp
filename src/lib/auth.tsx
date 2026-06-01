@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { requireSupabase, supabase } from './supabase';
 import type { Profile } from './supabase';
@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     const uid = session?.user?.id;
     if (!uid) {
       setProfile(null);
@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const { data } = await requireSupabase().from('profiles').select('*').eq('id', uid).single();
     setProfile((data as Profile) ?? null);
-  };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -64,8 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     refreshProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id]);
+  }, [session?.user, refreshProfile]);
 
   const value = useMemo<AuthState>(
     () => ({
@@ -78,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await requireSupabase().auth.signOut();
       },
     }),
-    [loading, session, profile]
+    [loading, session, profile, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

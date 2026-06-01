@@ -14,15 +14,18 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",
+    "@capacitor/camera": "^8.1.0",
     "@capacitor/core": "^8.3.0",
     "@capacitor/ios": "^8.3.0",
     "@capacitor/local-notifications": "^8.0.2",
     "@capacitor/preferences": "^8.0.1",
     "@supabase/supabase-js": "^2.102.0",
     "date-fns": "^4.1.0",
+    "lucide-react": "^1.11.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.14.0"
+    "react-router-dom": "^7.14.0",
+    "use-long-press": "^3.3.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.3.0",

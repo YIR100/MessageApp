@@ -41,10 +41,10 @@ create trigger on_auth_user_created
 -- 2. CONVERSATIONS
 create table public.conversations (
   id         uuid primary key default gen_random_uuid(),
-  name       text,                        -- null for 1:1, required for groups
   is_group   boolean default false,
-  created_by uuid references auth.users(id),
-  created_at timestamptz default now()
+  name       text,
+  created_by uuid references public.profiles(id) on delete cascade,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table public.conversations enable row level security;
 
@@ -56,8 +56,8 @@ create policy "Authenticated users can create conversations"
 -- 3. CONVERSATION MEMBERS
 create table public.conversation_members (
   conversation_id uuid references public.conversations(id) on delete cascade,
-  user_id         uuid references auth.users(id) on delete cascade,
-  joined_at       timestamptz default now(),
+  user_id         uuid references public.profiles(id) on delete cascade,
+  joined_at       timestamp with time zone default timezone('utc'::text, now()) not null,
   primary key (conversation_id, user_id)
 );
 alter table public.conversation_members enable row level security;
@@ -95,9 +95,13 @@ create policy "Conversation creator can add members"
 create table public.messages (
   id              uuid primary key default gen_random_uuid(),
   conversation_id uuid references public.conversations(id) on delete cascade,
-  sender_id       uuid references public.profiles(id),
-  content         text not null,
-  created_at      timestamptz default now()
+  sender_id       uuid references public.profiles(id) on delete cascade,
+  content         text,
+  media_url       text,
+  is_deleted      boolean default false,
+  reply_to_id     uuid references public.messages(id) on delete set null,
+  updated_at      timestamptz,
+  created_at      timestamp with time zone default timezone('utc'::text, now()) not null
 );
 alter table public.messages enable row level security;
 
@@ -113,6 +117,25 @@ create policy "Members can read messages"
 
 create policy "Members can send messages"
   on public.messages for insert
+  with check (
+    auth.uid() = sender_id and
+    exists (
+      select 1 from public.conversation_members
+      where conversation_id = messages.conversation_id
+        and user_id = auth.uid()
+    )
+  );
+
+create policy "Message senders can update their own messages"
+  on public.messages for update
+  using (
+    auth.uid() = sender_id and
+    exists (
+      select 1 from public.conversation_members
+      where conversation_id = messages.conversation_id
+        and user_id = auth.uid()
+    )
+  )
   with check (
     auth.uid() = sender_id and
     exists (
@@ -141,15 +164,12 @@ create policy "Members can view their conversations"
 -- ADDITIONS FOR MEDIA, READ RECEIPTS, EDIT/DELETE
 -- ============================================================
 
--- 1. Add support for Media Attachments, Editing, and Deleting Messages
-ALTER TABLE public.messages
-ADD COLUMN media_url text,
-ADD COLUMN updated_at timestamptz,
-ADD COLUMN is_deleted boolean DEFAULT false;
+
 
 -- 2. Create the attachments storage bucket
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('attachments', 'attachments', true);
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('attachments', 'attachments', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- 3. Storage Policies for the attachments bucket
 CREATE POLICY "Authenticated users can upload attachments"
